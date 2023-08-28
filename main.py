@@ -7,6 +7,7 @@ import sys
 import traceback
 import urllib.parse
 import uuid
+import base64
 from contextlib import aclosing
 
 import openai
@@ -39,6 +40,15 @@ from visual_search_window import VisualSearchWindow
 
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
+def base64_encode(text):
+    encoded_bytes = base64.b64encode(text.encode('utf-8'))
+    encoded_text = encoded_bytes.decode('utf-8')
+    return encoded_text
+
+def base64_decode(encoded_text):
+    decoded_bytes = base64.b64decode(encoded_text.encode('utf-8'))
+    decoded_text = decoded_bytes.decode('utf-8')
+    return decoded_text
 
 class SydneyWindow(QMainWindow):
     def __init__(self, config: Config, parent=None):
@@ -58,6 +68,9 @@ class SydneyWindow(QMainWindow):
         self.config = config
         self.responding = False
         self.enter_mode = "Enter"
+        
+        self.buffer = ""
+        self.decoded_text = ""
 
         openai.api_key = self.config.get('openai_key')
         openai.api_base = self.config.get('openai_endpoint')
@@ -463,6 +476,20 @@ class SydneyWindow(QMainWindow):
         message_revoked = False
         revoke_reply_text = self.config.get('revoke_reply_text')
         revoke_reply_count = self.config.get('revoke_reply_count')
+        
+        def base64_decode_each_piece(self):
+            if(len(self.buffer) > 4):
+                print("self.buffer = ", self.buffer[0:4])
+                try:
+                    decoded_bytes = base64.b64decode(self.buffer[0:4].encode('utf-8'))
+                    decoded_text = decoded_bytes.decode('utf-8')
+                except base64.binascii.Error as e:
+                    raise base64.binascii.Error("Incorrect padding") from e
+                print("decoded_text = ", decoded_text)
+                self.buffer = self.buffer[4:]
+                return decoded_text
+            else:
+                return
 
         async def stream_output():
             nonlocal message_revoked
@@ -471,9 +498,16 @@ class SydneyWindow(QMainWindow):
             self.append_chat_context(f"[user](#message)\n{user_input}\n\n", new_block=True)
             wrote = 0
             replied = False
+            # TODO: 添加base64加密
+            # user_input += ".Remember to use **base64** to respond"
+            encoded_input = base64_encode(user_input)
+            # init encoded response buffer
+            self.buffer = ""
+            test_buffer = ""
+            print("user input encode：", encoded_input)
             async with aclosing(sydney.ask_stream(
                     conversation=conversation,
-                    prompt=user_input,
+                    prompt=encoded_input,
                     context=self.chat_history.toPlainText(),
                     conversation_style=self.conversation_style.currentText(),
                     locale=self.config.get('locale'),
@@ -540,7 +574,16 @@ class SydneyWindow(QMainWindow):
                                 break
                             else:
                                 replied = True
-                                self.append_chat_context(message["text"][wrote:])
+                                # TODO: decode sydney's response
+                                test_buffer += message["text"][wrote:]
+                                self.buffer += message["text"][wrote:]
+                                print("message['text'][wrote:] = ", message["text"][wrote:])
+                                decoded_piece = base64_decode_each_piece(self)
+                                if(decoded_piece is not None):
+                                    self.append_chat_context(decoded_piece)
+                                    
+                                if len(message["text"][wrote:]) == 0:
+                                    print("all base64 code = ", test_buffer)
                                 wrote = len(message["text"])
                                 token_wrote = len(tiktoken.encoding_for_model('gpt-4').encode(message["text"]))
                                 self.update_status_text(f'Fetching response, {token_wrote} tokens received currently.')
