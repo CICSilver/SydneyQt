@@ -478,13 +478,14 @@ class SydneyWindow(QMainWindow):
         revoke_reply_count = self.config.get('revoke_reply_count')
         
         def base64_decode_each_piece(self):
-            if(len(self.buffer) > 4):
+            if(len(self.buffer) >= 4):
                 print("self.buffer = ", self.buffer[0:4])
                 try:
                     decoded_bytes = base64.b64decode(self.buffer[0:4].encode('utf-8'))
                     decoded_text = decoded_bytes.decode('utf-8')
                 except base64.binascii.Error as e:
-                    raise base64.binascii.Error("Incorrect padding") from e
+                    raise ValueError(f"Invalid input{decoded_text}") from e
+                    
                 print("decoded_text = ", decoded_text)
                 self.buffer = self.buffer[4:]
                 return decoded_text
