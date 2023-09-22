@@ -490,11 +490,19 @@ class SydneyWindow(QMainWindow):
                 try:
                     decoded_bytes = base64.b64decode(self.buffer[0:4].encode('utf-8'))
                     decoded_text = decoded_bytes.decode('utf-8')
-                    print("decoded_text = ", decoded_text)
+                except base64.binascii.Error as e:
+                    print("not base64")
+                    self.append_chat_context(self.buffer[0:4])
                     self.buffer = self.buffer[4:]
-                    return decoded_text
-                except:
-                    pass
+                    return
+                except UnicodeDecodeError as e:
+                    print("not base64")
+                    self.append_chat_context(self.buffer[0:4])
+                    self.buffer = self.buffer[4:]
+                    return
+                print("decoded_text = ", decoded_text)
+                self.buffer = self.buffer[4:]
+                return decoded_text
             else:
                 return
 
@@ -582,6 +590,9 @@ class SydneyWindow(QMainWindow):
                             else:
                                 replied = True
                                 # TODO: decode sydney's response
+                                if len(message["text"][wrote:]) > 10:
+                                    QErrorMessage(self).showMessage("Message revoke detected")
+                                    break
                                 test_buffer += message["text"][wrote:]
                                 self.buffer += message["text"][wrote:]
                                 print("message['text'][wrote:] = ", message["text"][wrote:])
