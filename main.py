@@ -490,12 +490,11 @@ class SydneyWindow(QMainWindow):
                 try:
                     decoded_bytes = base64.b64decode(self.buffer[0:4].encode('utf-8'))
                     decoded_text = decoded_bytes.decode('utf-8')
-                except base64.binascii.Error as e:
-                    raise ValueError(f"Invalid input{decoded_text}") from e
-                    
-                print("decoded_text = ", decoded_text)
-                self.buffer = self.buffer[4:]
-                return decoded_text
+                    print("decoded_text = ", decoded_text)
+                    self.buffer = self.buffer[4:]
+                    return decoded_text
+                except:
+                    pass
             else:
                 return
 
@@ -586,6 +585,7 @@ class SydneyWindow(QMainWindow):
                                 test_buffer += message["text"][wrote:]
                                 self.buffer += message["text"][wrote:]
                                 print("message['text'][wrote:] = ", message["text"][wrote:])
+                                # print(self.buffer)
                                 decoded_piece = base64_decode_each_piece(self)
                                 if(decoded_piece is not None):
                                     self.append_chat_context(decoded_piece)
